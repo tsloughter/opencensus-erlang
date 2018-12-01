@@ -35,6 +35,8 @@
 
 -define(RECORD(Tags, MeasureName, Value),
         begin
+            Measure = persistent_term:get(MeasureName),
+            oc_stat_measure:record(Measure, Tags, Value),
             Module = oc_stat_measure:measure_module(MeasureName),
             Module:record(Tags, Value),
             ok

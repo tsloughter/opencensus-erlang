@@ -34,7 +34,8 @@
 %% user api
 -export([new/3,
          exists/1,
-         unit/1]).
+         unit/1,
+         record/3]).
 
 %% codegen
 -export([measure_module/1,
@@ -59,7 +60,8 @@
 -record(measure, {name        :: name(),
                   module      :: module(),
                   description :: description(),
-                  unit        :: unit()}).
+                  unit        :: unit(),
+                  views=[]    :: []}).
 
 -type name()        :: atom() | binary() | string().
 -type description() :: binary() | string().
@@ -101,6 +103,9 @@ exists(Name) ->
 unit(#measure{unit=Unit}) ->
     Unit.
 
+record(#measure{views=Views}, Tags, Value) ->
+    [oc_stat_view:add_sample(View, Tags, Value) || View <- Views].
+
 %% =============================================================================
 %% internal
 %% =============================================================================
@@ -115,7 +120,9 @@ register_(#measure{name=Name}=Measure) ->
     end.
 
 %% @private
-insert_measure_(#measure{module=Module}=Measure) ->
+insert_measure_(#measure{name=Name,
+                         module=Module}=Measure) ->
+    persistent_term:put(Name, Measure),
     ets:insert(?MEASURES_TABLE, Measure),
     regen_record(Module, []),
     Measure.
@@ -125,7 +132,10 @@ add_subscription_(Measure, VS) ->
     case exists(Measure) of
         false ->
             {error, {unknown_measure, Measure}};
-        #measure{module=Module} ->
+        M=#measure{name=Name,
+                   module=Module,
+                   views=Views} ->
+            persistent_term:put(Name, M#measure{views=[VS | Views]}),
             Subs = Module:subs(),
             regen_record(Module, [VS | Subs]),
             ok

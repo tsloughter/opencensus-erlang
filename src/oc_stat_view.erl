@@ -45,6 +45,7 @@
          unsubscribe_/1]).
 
 -export([gen_add_sample_/1,
+         add_sample/3,
          tag_values_/2,
          all_subscribed_/0]).
 
@@ -255,6 +256,12 @@ export(#view{name=Name, description=Description,
       ctags => CTags,
       tags => lists:reverse(Keys),
       data => oc_stat_aggregation:convert(Data, MUnit, VUnit)}.
+
+add_sample(#v_s{name=Name,
+                 tags=ViewTags,
+                 aggregation=AModule,
+                 aggregation_options=AOptions}, Tags, Value) ->
+    AModule:add_sample(Name, oc_stat_view:tag_values_(Tags, ViewTags), Value, AOptions).
 
 %% =============================================================================
 %% internal
