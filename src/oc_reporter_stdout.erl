@@ -3,8 +3,10 @@
 -export([init/1,
          report/2]).
 
+-include_lib("stdlib/include/qlc.hrl").
+
 init(_) ->
     ok.
 
-report(Spans, _) ->
-    [io:format("~p~n", [Span]) || Span <- Spans].
+report(Tid, _) ->
+    qlc:e(qlc:q([io:format("~p~n", [Span]) || Span <- ets:table(Tid)])).

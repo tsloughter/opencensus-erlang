@@ -22,10 +22,13 @@
 -export([init/1,
          report/2]).
 
+-include_lib("stdlib/include/qlc.hrl").
+
 init(_) ->
     application:get_env(opencensus, tab_reporter, #{}).
 
-report(Spans, Opts) ->
+report(Tid, Opts) ->
+    Spans = qlc:e(qlc:q([Span || Span <- ets:table(Tid)])),
     Tid = maps:get(tid, Opts),
     ets:insert(Tid, Spans),
     ok.

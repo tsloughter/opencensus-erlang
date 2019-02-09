@@ -22,8 +22,10 @@
 -export([init/1,
          report/2]).
 
+-include_lib("stdlib/include/qlc.hrl").
+
 init(Pid) -> Pid.
 
-report(Spans, Pid) ->
-    [Pid ! {span, Span} || Span <- Spans],
+report(Tid, Pid) ->
+    qlc:e(qlc:q([Pid ! {span, Span} || Span <- ets:table(Tid)])),
     ok.

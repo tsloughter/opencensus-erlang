@@ -54,8 +54,6 @@
                 send_interval_ms :: integer(),
                 timer_ref :: reference()}).
 
--define(BUFFER_1, oc_report_buffer1).
--define(BUFFER_2, oc_report_buffer2).
 -define(BUFFER_STATUS, oc_report_status).
 
 start_link() ->
@@ -125,33 +123,19 @@ init_reporter(Reporter) when is_atom(Reporter) ->
 maybe_init_ets() ->
     case ets:info(?BUFFER_STATUS, name) of
         undefined ->
-            [ets:new(Tab, [named_table, public | TableProps ]) ||
-                {Tab, TableProps} <- [{?BUFFER_1, [{write_concurrency, true}, {keypos, #span.span_id}]},
-                                      {?BUFFER_2, [{write_concurrency, true}, {keypos, #span.span_id}]},
-                                      {?BUFFER_STATUS, [{read_concurrency, true}]}]],
-            ets:insert(?BUFFER_STATUS, {current_buffer, ?BUFFER_1});
+            Tid = new_span_table(),
+            ets:new(?BUFFER_STATUS, [public, named_table]),
+            ets:insert(?BUFFER_STATUS, {current_buffer, Tid});
         _ ->
             ok
     end.
 
 send_spans(Reporters) ->
+    NewTid = new_span_table(),
     [{_, Buffer}] = ets:lookup(?BUFFER_STATUS, current_buffer),
-    NewBuffer = case Buffer of
-                    ?BUFFER_1 ->
-                        ?BUFFER_2;
-                    ?BUFFER_2 ->
-                        ?BUFFER_1
-                end,
-    ets:insert(?BUFFER_STATUS, {current_buffer, NewBuffer}),
-    case ets:tab2list(Buffer) of
-        [] ->
-            ok;
-        Spans ->
-            ets:delete_all_objects(Buffer),
-            [report(Reporter, Spans, Config)
-             || {Reporter, Config} <- Reporters],
-            ok
-    end.
+    ets:insert(?BUFFER_STATUS, {current_buffer, NewTid}),
+    [report(Reporter, Buffer, Config) || {Reporter, Config} <- Reporters],
+    ets:delete(Buffer).
 
 report(undefined, _, _) ->
     ok;
@@ -164,3 +148,6 @@ report(Reporter, Spans, Config) ->
             ?LOG_INFO("reporter threw exception: reporter=~p ~p:~p stacktrace=~p",
                       [Reporter, Class, Exception, StackTrace])
     end.
+
+new_span_table() ->
+    ets:new(span_buffer, [public, {write_concurrency, true}, {keypos, #span.span_id}]).
